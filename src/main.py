@@ -27,13 +27,20 @@ class Events(commands.Cog):
 			await self.bot.wait_until_ready()
 			try:
 				channel = after.channel
-				self.vc = await channel.connect()
+				if not self.is_connected(member.guild):
+					self.vc = await channel.connect()
+				else:
+					await self.vc.move_to(channel)
 				self.vc.play(discord.FFmpegPCMAudio('src/nerfthis.mp3'))
 				while self.vc.is_playing():
 					await asyncio.sleep(1)
 				await self.vc.disconnect()
 			except Exception as e:
 				print('{0}'.format(e))
+
+	def is_connected(self, guild):
+		vc = discord.utils.get(self.bot.voice_clients, guild=guild)
+		return vc and vc.is_connected()
 
 bot = commands.Bot(command_prefix=commands.when_mentioned_or("!"))
 
