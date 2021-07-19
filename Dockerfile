@@ -1,11 +1,11 @@
-FROM python:3.8
-
-WORKDIR /code
+FROM python:3.6
 
 COPY requirements.txt .
-
 RUN pip install -r requirements.txt
 
-COPY src/ .
+RUN apt-get update && apt-get install -y libopus0 ffmpeg libffi-dev
 
-CMD ["python", "./main.py"]
+WORKDIR /app
+COPY /src /app/src
+
+CMD ["python", "src/main.py"]
