@@ -1,5 +1,7 @@
 import os
 import asyncio
+import glob
+import secrets
 
 import discord
 from discord.ext import commands
@@ -47,7 +49,7 @@ class Events(commands.Cog):
 				await voice_client.move_to(channel)
 
 			# Play music
-			source = discord.PCMVolumeTransformer(discord.FFmpegPCMAudio('src/nerfthis.mp3'))
+			source = discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(secrets.choice(mp3_list)))
 			voice_client.play(source, after= lambda e: print('Player error: %s' % e) if e else None)
 
 			# Wait while playing
@@ -76,7 +78,10 @@ if __name__ == '__main__':
 		text = fd.read()
 		word_list = text.splitlines()	
 
+	# MP3 List
+	mp3_list = glob.glob('src/sound/*.mp3')
+
 	# Create bot
 	bot.add_cog(Events(bot))
 	my_secret = os.environ['TOKEN']
-	bot.run(my_secret)
+	bot.run(my_secret)	
