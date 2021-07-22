@@ -7,13 +7,14 @@ from discord.ext import commands
 class Events(commands.Cog):
 	def __init__(self, bot):
 		self.bot = bot
-		self.vc = None
-		
+
 	@commands.Cog.listener()
 	async def on_message(self, message):
 		try:
-			if message.author == self.bot.user: return
+			# Make sure author is not a bot
+			if message.author is self.bot.user: return
 			if message.author.bot: return
+			# Search word list to reply to
 			if any(word in message.content for word in word_list):
 				await message.channel.send('Thats awesome man')
 		except Exception as e:
@@ -21,26 +22,46 @@ class Events(commands.Cog):
 
 	@commands.Cog.listener()
 	async def on_voice_state_update(self, member, before, after):
-		if member == self.bot.user: return
-		if self.vc is not None and self.vc.is_playing(): return
-		if after.channel is not None:
-			await self.bot.wait_until_ready()
-			try:
-				channel = after.channel
-				if not self.is_connected(member.guild):
-					self.vc = await channel.connect()
-				else:
-					await self.vc.move_to(channel)
-				self.vc.play(discord.FFmpegPCMAudio('src/nerfthis.mp3'))
-				while self.vc.is_playing():
-					await asyncio.sleep(1)
-				await self.vc.disconnect()
-			except Exception as e:
-				print('{0}'.format(e))
+		# Make sure the member is joining a channel
+		if after.channel is None: return
+		# Make sure member has not moved to AFK
+		if after.afk: return
+		# Ignore mute / deaf etc.
+		if before.channel is after.channel: return
+		# Make sure member is not a bot or itself
+		if member is self.bot.user: return
+		if member.bot: return
 
-	def is_connected(self, guild):
-		vc = discord.utils.get(self.bot.voice_clients, guild=guild)
-		return vc and vc.is_connected()
+		# If bot already connected to voice client & is playing music, stop.
+		voice_client = self.get_voice_client(member.guild)
+		if voice_client is not None and voice_client.is_playing(): 
+			voice_client.stop()
+
+		# Try connect/move to the channel
+		try:
+			await self.bot.wait_until_ready()
+			channel = after.channel
+			if voice_client is None:
+				voice_client = await channel.connect(timeout=5.0)
+			elif voice_client.channel is not channel:
+				await voice_client.move_to(channel)
+
+			# Play music
+			source = discord.PCMVolumeTransformer(discord.FFmpegPCMAudio('src/nerfthis.mp3'))
+			voice_client.play(source, after= lambda e: print('Player error: %s' % e) if e else None)
+
+			# Wait while playing
+			while voice_client.is_playing():
+				await asyncio.sleep(1)
+
+			# Once finished disconnect
+			await voice_client.disconnect()
+		except Exception as e:
+			print('{0}'.format(e))
+
+
+	def get_voice_client(self, guild):
+		return discord.utils.get(self.bot.voice_clients, guild=guild)
 
 bot = commands.Bot(command_prefix=commands.when_mentioned_or("!"))
 
@@ -48,11 +69,14 @@ bot = commands.Bot(command_prefix=commands.when_mentioned_or("!"))
 async def on_ready():
 	print('We have logged in as {0.user}'.format(bot))
 
-word_list = []
-with open('src/verbs.txt') as fd:
-	text = fd.read()
-	word_list = text.splitlines()
+if __name__ == '__main__':
+	# Load word list
+	word_list = []
+	with open('src/verbs.txt') as fd:
+		text = fd.read()
+		word_list = text.splitlines()	
 
-bot.add_cog(Events(bot))
-my_secret = os.environ['TOKEN']
-bot.run(my_secret)
+	# Create bot
+	bot.add_cog(Events(bot))
+	my_secret = os.environ['TOKEN']
+	bot.run(my_secret)
