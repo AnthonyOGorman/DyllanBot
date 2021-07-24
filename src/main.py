@@ -65,7 +65,12 @@ class Events(commands.Cog):
 	def get_voice_client(self, guild):
 		return discord.utils.get(self.bot.voice_clients, guild=guild)
 
-bot = commands.Bot(command_prefix=commands.when_mentioned_or("!"))
+	@commands.command()
+	async def leave(self, ctx):
+		await ctx.voice_client.disconnect()
+		await ctx.channel.send('I love egg')
+
+bot = commands.Bot(command_prefix=commands.when_mentioned_or("Egg "))
 
 @bot.event
 async def on_ready():
