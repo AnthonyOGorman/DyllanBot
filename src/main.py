@@ -9,10 +9,15 @@ from discord.ext import commands
 class Events(commands.Cog):
 	def __init__(self, bot):
 		self.bot = bot
+		self.voice_client = None
 
 	@commands.Cog.listener()
 	async def on_message(self, message):
 		try:
+			if 'leveled' in message.content:
+				if message.author.bot:
+					await self.play_music('./src/sound/' + secrets.choice(leveled_list), self.bot.get_channel(588687217795268629))
+
 			# Make sure author is not a bot
 			if message.author is self.bot.user: return
 			if message.author.bot: return
@@ -34,40 +39,37 @@ class Events(commands.Cog):
 		if member is self.bot.user: return
 		if member.bot: return
 
-		# If bot already connected to voice client & is playing music, stop.
-		voice_client = self.get_voice_client(member.guild)
-		if voice_client is not None and voice_client.is_playing(): 
-			voice_client.stop()
-
-		# Try connect/move to the channel
-		try:
-			await self.bot.wait_until_ready()
-			channel = after.channel
-			if voice_client is None:
-				voice_client = await channel.connect(timeout=5.0)
-			elif voice_client.channel is not channel:
-				await voice_client.move_to(channel)
-
-			# Play music
-			source = discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(secrets.choice(mp3_list)))
-			voice_client.play(source, after= lambda e: print('Player error: %s' % e) if e else None)
-
-			# Wait while playing
-			while voice_client.is_playing():
-				await asyncio.sleep(1)
-
-			# Once finished disconnect
-			await voice_client.disconnect()
-		except Exception as e:
-			print('{0}'.format(e))
+		await self.play_music(secrets.choice(mp3_list), after.channel)
 
 
 	def get_voice_client(self, guild):
 		return discord.utils.get(self.bot.voice_clients, guild=guild)
 
+	async def play_music(self, music, channel):
+		# If bot already connected to voice client & is playing music, stop.
+		if self.voice_client is not None and self.voice_client.is_playing(): 
+			self.voice_client.stop()
+
+		# Try connect/move to the channel
+		try:
+			await self.bot.wait_until_ready()
+			if self.voice_client is None:
+				self.voice_client = await channel.connect(timeout=5.0)
+			elif self.voice_client.channel is not channel:
+				await self.voice_client.move_to(channel)
+
+			# Play music
+			source = discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(music))
+			self.voice_client.play(source, after= lambda e: print('Player error: %s' % e) if e else None)
+
+		except Exception as e:
+			print('{0}'.format(e))
+			return
+
 	@commands.command()
 	async def leave(self, ctx):
 		await ctx.voice_client.disconnect()
+		self.voice_client = None
 		await ctx.channel.send('I love egg')
 
 bot = commands.Bot(command_prefix=commands.when_mentioned_or("Egg "))
@@ -82,6 +84,12 @@ if __name__ == '__main__':
 	with open('src/verbs.txt') as fd:
 		text = fd.read()
 		word_list = text.splitlines()	
+
+	# Sound (leveled) list
+	leveled_list = []
+	with open('src/leveled.txt') as fd:
+		text = fd.read()
+		leveled_list = text.splitlines()	
 
 	# MP3 List
 	mp3_list = glob.glob('src/sound/*.mp3')
