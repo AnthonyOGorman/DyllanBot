@@ -88,7 +88,7 @@ class Events(commands.Cog):
 		if self.voice_client is not None:
 			# Random chance to talk around twice an hour
 			if random.randrange(0,30)+1 == 30:
-				await self.play_music(".\src\sound\stfu.mp3", self.voice_client.channel)
+				await self.play_music(".\sound\stfu.mp3", self.voice_client.channel)
 
 bot = commands.Bot(command_prefix=commands.when_mentioned_or("Egg "))
 
