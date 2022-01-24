@@ -2,9 +2,11 @@ import os
 import asyncio
 import glob
 import secrets
-
+import random
 import discord
 from discord.ext import commands
+from discord.ext.tasks import loop
+
 
 class Events(commands.Cog):
 	def __init__(self, bot):
@@ -14,10 +16,6 @@ class Events(commands.Cog):
 	@commands.Cog.listener()
 	async def on_message(self, message):
 		try:
-			if 'leveled' in message.content:
-				if message.author.bot:
-					await self.play_music('./src/sound/' + secrets.choice(leveled_list), self.bot.get_channel(588687217795268629))
-
 			# Make sure author is not a bot
 			if message.author is self.bot.user: return
 			if message.author.bot: return
@@ -44,8 +42,18 @@ class Events(commands.Cog):
 
 	def get_voice_client(self, guild):
 		return discord.utils.get(self.bot.voice_clients, guild=guild)
+	
+	def reset_voice_client_if_disconnected(self):
+		try:
+			if self.voice_client and not self.voice_client.is_connected():
+				self.voice_client = None
+		except Exception as e:
+			self.voice_client = None
 
 	async def play_music(self, music, channel):
+		# Check if bot was forcably disconnected
+		self.reset_voice_client_if_disconnected()
+
 		# If bot already connected to voice client & is playing music, stop.
 		if self.voice_client is not None and self.voice_client.is_playing(): 
 			self.voice_client.stop()
@@ -64,6 +72,9 @@ class Events(commands.Cog):
 
 		except Exception as e:
 			print('{0}'.format(e))
+			if self.voice_client is not None:
+				await self.voice_client.disconnect()
+				self.voice_client = None
 			return
 
 	@commands.command()
@@ -71,6 +82,13 @@ class Events(commands.Cog):
 		await ctx.voice_client.disconnect()
 		self.voice_client = None
 		await ctx.channel.send('I love egg')
+	
+	@loop(seconds=60)
+	async def random_voice(self):
+		if self.voice_client is not None:
+			# Random chance to talk around twice an hour
+			if random.randrange(0,30)+1 == 30:
+				await self.play_music(".\src\sound\stfu.mp3", self.voice_client.channel)
 
 bot = commands.Bot(command_prefix=commands.when_mentioned_or("Egg "))
 
@@ -95,6 +113,13 @@ if __name__ == '__main__':
 	mp3_list = glob.glob('src/sound/*.mp3')
 
 	# Create bot
-	bot.add_cog(Events(bot))
+	event = Events(bot)
+
+	# Start tasks
+	event.random_voice.start()
+
+	bot.add_cog(event)
 	my_secret = os.environ['TOKEN']
-	bot.run(my_secret)	
+	bot.run(my_secret)
+
+	
